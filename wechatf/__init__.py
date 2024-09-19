@@ -43,6 +43,18 @@ def get_user_info():
     """
     return fj.get_login_user_info()
 
+def listen_message():
+    """
+    获取登录用户信息
+    """
+    return fj.listen_message()
+
+def get_contact_list():
+    """
+    获取登录用户信息
+    """
+    return fj.get_contact_list()
+
 
 def logout():
     """
