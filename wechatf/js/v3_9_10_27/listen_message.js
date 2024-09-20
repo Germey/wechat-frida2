@@ -1,68 +1,114 @@
-// WeChat消息监听
+// hook信息
 let hook_info = {
-    moduleName: "WeChatWin.dll",
-    recvMsgOffset: 0x2205510, // 这个地址根据你的代码定义
+  // 模块名称
+  moduleName: "WeChatWin.dll",
+
+  // HOOK地址
+  hook_offset: 0x2205510,
+
+  // 寄存器
+  register: "eax",
+
+  // 消息偏移
+  // offset_wxid: 0x40,
+  // offset_msg: 0x68,
+  // offset_nickName: null,
+  // offset_type: 0x30,
+  // msg_type: { 1: "text", 3: "image" },
+  MsgIDOffset: 0x30, // 消息ID
+  MsgTypeOffset: 0x38, // 消息类型
+  MsgContentOffset: 0x88, // 消息内容
+  MsgWxIDOffset: 0x240, // 发送者WxID
+  MsgRoomIDOffset: 0x48, // 群聊ID
+  MsgSelfOffset: 0x3c, // 是否为自己发送的消息
+  MsgTsOffset: 0x44, // 消息时间戳
 };
 
-let msgQueue = [];
-let msgSock; // 用于发送消息的socket，这里需要根据你的实现来配置
+// hook接受地址
+function hook_recv_message() {
+  // 获取基地值
+  let baseAddress = Module.findBaseAddress(hook_info.moduleName);
 
-function getStringByWstrAddr(addr) {
-    let strLength = addr.add(8).readU32();
-    return strLength ? addr.readUtf16String(strLength) : "";
+  // hook地址
+  let addr = baseAddress.add(hook_info.hook_offset);
+
+  // console.log(addr)
+  // 在函数内部进行 hook
+  Interceptor.attach(addr, {
+    onEnter: function (args) {
+      try {
+        // let eax= this.context.eax;
+
+        // 动态获取基地址指针
+        let base_pointer = this.context[hook_info.register];
+        // console.log(base_pointer)
+
+        // 消息类型
+        // let msg_type = { 1: "text", 3: "image" }
+        // 获取消息类型
+        let _msg_type_int = base_pointer.add(hook_info.offset_type).readU32();
+        let _msg_type_str = "";
+
+        // // 转换消息类型
+        // if (_msg_type_int in hook_info.msg_type) {
+        //   _msg_type_str = hook_info.msg_type[_msg_type_int];
+        // } else {
+        //   _msg_type_str = "" + _msg_type_int;
+        // }
+
+        // // 组件返回结构
+        // let result = {
+        //   wxid: base_pointer
+        //     .add(hook_info.offset_wxid)
+        //     .readPointer()
+        //     .readUtf16String(),
+        //   message: base_pointer
+        //     .add(hook_info.offset_msg)
+        //     .readPointer()
+        //     .readUtf16String(),
+        //   nick_name: "",
+        //   type: _msg_type_str,
+        // };
+
+        // // 发送到python
+        // send({ api: "recv_message", data: result });
+        let msgID = arg2.add(hook_info.MsgIDOffset).readPointer().toString();
+        let msgType = arg2.add(hook_info.MsgTypeOffset).readU32();
+        let msgContent = arg2.add(hook_info.MsgContentOffset).readUtf16String();
+        let senderWxID = arg2.add(hook_info.MsgWxIDOffset).readUtf16String();
+        let roomID = arg2.add(hook_info.MsgRoomIDOffset).readUtf16String();
+        let isSelf = arg2.add(hook_info.MsgSelfOffset).readU32();
+        let timestamp = arg2.add(hook_info.MsgTsOffset).readU32();
+
+        let isGroup = roomID.indexOf("@chatroom") !== -1;
+        let sender = isSelf ? "自己" : isGroup ? senderWxID : roomID;
+
+        // 打印消息日志
+        console.log(`消息ID: ${msgID}`);
+        console.log(`消息类型: ${msgType}`);
+        console.log(`消息内容: ${msgContent}`);
+        console.log(`发送者: ${sender}`);
+        console.log(`是否群聊: ${isGroup}`);
+        console.log(`时间戳: ${timestamp}`);
+        // for(let i=0;i<0x60;i=i+4){
+        //     console.log("offset: 0x" + i.toString(16) +": 0x"+ base_pointer.add(i).readU32().toString(16))
+        // }
+        // console.log("---------------------")
+      } catch (error) {
+        // 打印堆栈信息
+        console.error(error.stack);
+      }
+    },
+  });
 }
 
-function dispatchMsg(arg1, arg2) {
-    console.log('arg', arg1, arg2);
-    id = arg2.add(OS_RECV_MSG_ID).readQWord();
-    console.log('id', id);
-    let wxMsg = {
-        id: arg2.add(OS_RECV_MSG_ID).readQWord(),
-        type: arg2.add(OS_RECV_MSG_TYPE).readU32(),
-        is_self: arg2.add(OS_RECV_MSG_SELF).readU32(),
-        ts: arg2.add(OS_RECV_MSG_TS).readU32(),
-        content: getStringByWstrAddr(arg2.add(OS_RECV_MSG_CONTENT)),
-        sign: getStringByWstrAddr(arg2.add(OS_RECV_MSG_SIGN)),
-        roomid: getStringByWstrAddr(arg2.add(OS_RECV_MSG_ROOMID)),
-        thumb: getStringByWstrAddr(arg2.add(OS_RECV_MSG_THUMB)),
-        extra: getStringByWstrAddr(arg2.add(OS_RECV_MSG_EXTRA)),
-    };
-
-    if (wxMsg.roomid.includes("@chatroom")) {
-        wxMsg.is_group = true;
-        wxMsg.sender = wxMsg.is_self ? getSelfWxid() : wxMsg.roomid;
-    } else {
-        wxMsg.is_group = false;
-        wxMsg.sender = wxMsg.is_self ? getSelfWxid() : wxMsg.roomid;
-    }
-
-    msgQueue.push(wxMsg);
-    notifyMessage(wxMsg); // 这里可以调用你发送消息的函数
+// 安全调用
+function entry() {
+  try {
+    hook_recv_message();
+  } catch (error) {
+    console.error("error:", error.stack);
+  }
 }
 
-function notifyMessage(wxMsg) {
-    console.log('send message', JSON.stringify(wxMsg));
-    // // 发送到消息队列或socket
-    // let rsp = {
-    //     msg: {
-    //         wxmsg: wxMsg,
-    //     },
-    // };
-    // let buffer = new ArrayBuffer(G_BUF_SIZE);
-    // let stream = new ProtobufWriter(buffer); // 使用protobuf库来编码数据
-    // if (!stream.encode(Response_fields, rsp)) {
-    //     console.error("Encoding failed.");
-    //     return;
-    // }
-    
-    // let rv = nng_send(msgSock, buffer, stream.bytes_written, 0);
-    // if (rv !== 0) {
-    //     console.error("msgSock-nng_send error:", rv);
-    // }
-}
-
-Interceptor.replace(Module.findBaseAddress(hook_info.moduleName).add(hook_info.recvMsgOffset), new NativeCallback(dispatchMsg, 'uint64', ['uint64', 'uint64']));
-
-rpc.exports.listenmessage = function () {
-    console.log("Listening for WeChat messages...");
-};
+entry();
