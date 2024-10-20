@@ -42,7 +42,7 @@ def test_receive_send_message_getremarkname():
 
 if __name__ == '__main__':
     # test_send_msg()
-    print(wechatf.get_user_info())
+    # print(wechatf.get_user_info())
     # print(wechatf.get_contact_list())
-    print(wechatf.listen_message())
+    print(wechatf.recv_message())
     pass

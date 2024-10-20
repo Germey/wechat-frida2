@@ -4,7 +4,7 @@
 import queue
 
 from .frida_session import FridaSession
-from . import _debug_print
+# from . import _debug_print
 
 
 class FridaJS:
@@ -40,9 +40,9 @@ class FridaJS:
 
         def _on_message(message, data):
             if message["type"] == 'send':
-                if _debug_print:
-                    print("来自Frida的消息：\n", message["payload"])
-                    print("---------------------")
+                # if _debug_print:
+                #     print("来自Frida的消息：\n", message["payload"])
+                #     print("---------------------")
 
                 # 获取api 类型和数据
                 api = message["payload"]["api"]
@@ -88,8 +88,10 @@ class FridaJS:
 
         def sync_call(*args, **kwargs):
             # 根据名称获取方法
+            print('script.exports_sync', script.exports_sync)
             _func = getattr(script.exports_sync, func_name.replace("_", ""))
-
+            print('func_name:', func_name)
+            print('_func', _func, args, kwargs)
             # 调用方法
             result = _func(*args, **kwargs)
 

@@ -28,20 +28,79 @@ let hook_info = {
 function hook_recv_message() {
   // 获取基地值
   let baseAddress = Module.findBaseAddress(hook_info.moduleName);
+  console.log("baseAddress", baseAddress);
 
   // hook地址
   let addr = baseAddress.add(hook_info.hook_offset);
+  console.log("hook addr", addr);
 
+  if (Memory.protect(addr, 1, "r")) {
+    console.log("Address is readable44444");
+  } else {
+    console.log(
+      "Address is not readable or doesn't point to a valid memory region"
+    );
+  }
+
+  console.log("hook_info.moduleName", hook_info.moduleName);
+  // var exports = Module.enumerateExports(hook_info.moduleName);
+  // console.log("exports", exports);
+
+  // exports.forEach(function (exp) {
+  //   try {
+  //     console.log(
+  //       "Attaching to function: " + exp.name + " at address: " + exp.address
+  //     );
+
+  //     // 对每个导出函数进行 attach
+  //     Interceptor.attach(exp.address, {
+  //       onEnter: function (args) {
+  //         console.log("Entered function: " + exp.name);
+  //         // 可以在这里打印函数参数 args
+  //         for (var i = 0; i < 6; i++) {
+  //           // 假设最多 6 个参数，你可以根据函数实际参数数量调整
+  //           console.log("arg[" + i + "]: " + args[i]);
+  //         }
+  //       },
+  //       onLeave: function (retval) {
+  //         console.log("Exited function: " + exp.name);
+  //         // 可以在这里打印返回值
+  //         console.log("Return value: " + retval);
+  //       },
+  //     });
+  //   } catch (e) {
+  //     console.error(
+  //       "Failed to attach to function: " + exp.name + " - Error: " + e
+  //     );
+  //   }
+  // });
+
+  // const bytes = Memory.readByteArray(addr, 16); // 读取16字节
+  // console.log(hexdump(bytes, { offset: addr }));
+
+  Interceptor.attach(addr, {
+    onEnter: function (args) {
+      console.log("hook onEnter", args[0], args[1]);
+    },
+    onLeave: function (retval) {
+      return retval;
+    },
+  });
   // console.log(addr)
   // 在函数内部进行 hook
   Interceptor.attach(addr, {
+    onLeave: function (retval) {
+      console.log("Exiting hook function, retval: " + retval.toString());
+    },
     onEnter: function (args) {
+      console.log("hook onEnter", args[0], args[1]);
       try {
         // let eax= this.context.eax;
 
         // 动态获取基地址指针
         let base_pointer = this.context[hook_info.register];
         // console.log(base_pointer)
+        console.log("base_pointer", base_pointer);
 
         // 消息类型
         // let msg_type = { 1: "text", 3: "image" }
@@ -102,7 +161,15 @@ function hook_recv_message() {
   });
 }
 
-// 安全调用
+// // 安全调用
+// function entry() {
+//   try {
+//     hook_recv_message();
+//   } catch (error) {
+//     console.error("error:", error.stack);
+//   }
+// }
+
 function entry() {
   try {
     hook_recv_message();

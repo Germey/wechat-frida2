@@ -2,13 +2,13 @@
 对外接口
 """
 # 打开调试模式
+# from .deal_recv_friend_list import friend_list
+from .frida_js import fj
 _debug_print = False
 
 # frida js 对象
-from .frida_js import fj
 
 # 好友列表
-from .deal_recv_friend_list import friend_list
 
 
 def is_login():
@@ -43,11 +43,13 @@ def get_user_info():
     """
     return fj.get_login_user_info()
 
-def listen_message():
+
+def recv_message():
     """
     获取登录用户信息
     """
-    return fj.listen_message()
+    return fj.recv_message()
+
 
 def get_contact_list():
     """
